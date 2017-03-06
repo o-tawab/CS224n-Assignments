@@ -3,9 +3,9 @@
 import numpy as np
 import random
 
-from q1_softmax import softmax
-from q2_sigmoid import sigmoid, sigmoid_grad
-from q2_gradcheck import gradcheck_naive
+from assignment1.q1_softmax import softmax
+from assignment1.q2_sigmoid import sigmoid, sigmoid_grad
+from assignment1.q2_gradcheck import gradcheck_naive
 
 
 def forward_backward_prop(data, labels, params, dimensions):
@@ -27,7 +27,7 @@ def forward_backward_prop(data, labels, params, dimensions):
     ofs = 0
     Dx, H, Dy = (dimensions[0], dimensions[1], dimensions[2])
 
-    W1 = np.reshape(params[ofs:ofs+ Dx * H], (Dx, H))
+    W1 = np.reshape(params[ofs:ofs + Dx * H], (Dx, H))
     ofs += Dx * H
     b1 = np.reshape(params[ofs:ofs + H], (1, H))
     ofs += H
@@ -36,16 +36,24 @@ def forward_backward_prop(data, labels, params, dimensions):
     b2 = np.reshape(params[ofs:ofs + Dy], (1, Dy))
 
     ### YOUR CODE HERE: forward propagation
-    raise NotImplementedError
+    h1 = np.matmul(data, W1) + b1
+    a1 = sigmoid(h1)
+    y = softmax(np.matmul(a1, W2) + b2)
     ### END YOUR CODE
 
     ### YOUR CODE HERE: backward propagation
-    raise NotImplementedError
+    dy = y - labels
+    cost = dy
+    d2 = np.matmul(dy, W2.T)
+    gradW2 = np.matmul(a1.T, dy)
+    gradb2 = dy
+    gradW1 = np.matmul(data.T, d2)
+    gradb1 = d2
     ### END YOUR CODE
 
     ### Stack gradients (do not modify)
     grad = np.concatenate((gradW1.flatten(), gradb1.flatten(),
-        gradW2.flatten(), gradb2.flatten()))
+                           gradW2.flatten(), gradb2.flatten()))
 
     return cost, grad
 
@@ -55,20 +63,20 @@ def sanity_check():
     Set up fake data and parameters for the neural network, and test using
     gradcheck.
     """
-    print "Running sanity check..."
+    print("Running sanity check...")
 
     N = 20
     dimensions = [10, 5, 10]
-    data = np.random.randn(N, dimensions[0])   # each row will be a datum
+    data = np.random.randn(N, dimensions[0])  # each row will be a datum
     labels = np.zeros((N, dimensions[2]))
-    for i in xrange(N):
-        labels[i, random.randint(0,dimensions[2]-1)] = 1
+    for i in range(N):
+        labels[i, random.randint(0, dimensions[2] - 1)] = 1
 
     params = np.random.randn((dimensions[0] + 1) * dimensions[1] + (
         dimensions[1] + 1) * dimensions[2], )
 
     gradcheck_naive(lambda params:
-        forward_backward_prop(data, labels, params, dimensions), params)
+                    forward_backward_prop(data, labels, params, dimensions), params)
 
 
 def your_sanity_checks():
@@ -78,7 +86,7 @@ def your_sanity_checks():
     This function will not be called by the autograder, nor will
     your additional tests be graded.
     """
-    print "Running your sanity checks..."
+    print("Running your sanity checks...")
     ### YOUR CODE HERE
     raise NotImplementedError
     ### END YOUR CODE
