@@ -31,6 +31,7 @@ def softmax(x):
     if len(x.shape) > 1:
         # Matrix
         ### YOUR CODE HERE
+        x -= np.max(x, axis=1)[:, None]
         exp_x = np.exp(x)
         x = exp_x / np.sum(exp_x, axis=1)[:, None]
         ### END YOUR CODE
@@ -56,14 +57,14 @@ def test_softmax_basic():
     ans1 = np.array([0.26894142, 0.73105858])
     assert np.allclose(test1, ans1, rtol=1e-05, atol=1e-06)
 
-    test2 = softmax(np.array([[1, 2], [3, 4]]))
+    test2 = softmax(np.array([[1001, 1002], [3, 4]]))
     print(test2)
     ans2 = np.array([
         [0.26894142, 0.73105858],
         [0.26894142, 0.73105858]])
     assert np.allclose(test2, ans2, rtol=1e-05, atol=1e-06)
 
-    test3 = softmax(np.array([[-1, -2]]))
+    test3 = softmax(np.array([[-1001, -1002]]))
     print(test3)
     ans3 = np.array([0.73105858, 0.26894142])
     assert np.allclose(test3, ans3, rtol=1e-05, atol=1e-06)
