@@ -3,9 +3,9 @@
 import numpy as np
 import random
 
-from assignment1.q1_softmax import softmax
-from assignment1.q2_sigmoid import sigmoid, sigmoid_grad
-from assignment1.q2_gradcheck import gradcheck_naive
+from q1_softmax import softmax
+from q2_sigmoid import sigmoid, sigmoid_grad
+from q2_gradcheck import gradcheck_naive
 
 
 def forward_backward_prop(data, labels, params, dimensions):
@@ -75,8 +75,9 @@ def sanity_check():
     params = np.random.randn((dimensions[0] + 1) * dimensions[1] + (
         dimensions[1] + 1) * dimensions[2], )
 
-    gradcheck_naive(lambda params:
-                    forward_backward_prop(data, labels, params, dimensions), params)
+
+    gradcheck_naive(lambda paramss:
+                    forward_backward_prop(data, labels, paramss, dimensions), params)
 
 
 def your_sanity_checks():

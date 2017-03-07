@@ -3,9 +3,9 @@
 import numpy as np
 import random
 
-from assignment1.q1_softmax import softmax
-from assignment1.q2_gradcheck import gradcheck_naive
-from assignment1.q2_sigmoid import sigmoid, sigmoid_grad
+from q1_softmax import softmax
+from q2_gradcheck import gradcheck_naive
+from q2_sigmoid import sigmoid, sigmoid_grad
 
 def normalizeRows(x):
     """ Row normalization function
