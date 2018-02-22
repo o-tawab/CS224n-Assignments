@@ -32,8 +32,8 @@ def softmax(x):
         # Matrix
         ### YOUR CODE HERE
         m = np.amax(x, axis=1)
-        x = np.exp(x.T - m)
-        x = (x.T / np.sum(x, axis=0))
+        x = np.exp(x.T - m).T
+        x = (x.T / np.sum(x, axis=1)).T
         ### END YOUR CODE
     else:
         # Vector
