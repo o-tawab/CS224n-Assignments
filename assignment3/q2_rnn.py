@@ -27,6 +27,7 @@ logger = logging.getLogger("hw3.q2")
 logger.setLevel(logging.DEBUG)
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
+
 class Config:
     """Holds model hyperparams and data information.
 
@@ -34,10 +35,10 @@ class Config:
     information parameters. Model objects are passed a Config() object at
     instantiation.
     """
-    n_word_features = 2 # Number of features for every word in the input.
+    n_word_features = 2  # Number of features for every word in the input.
     window_size = 1
-    n_features = (2 * window_size + 1) * n_word_features # Number of features for every word in the input.
-    max_length = 120 # longest sequence to parse
+    n_features = (2 * window_size + 1) * n_word_features  # Number of features for every word in the input.
+    max_length = 120  # longest sequence to parse
     n_classes = 5
     dropout = 0.5
     embed_size = 50
@@ -59,6 +60,7 @@ class Config:
         self.eval_output = self.output_path + "results.txt"
         self.conll_output = self.output_path + "{}_predictions.conll".format(self.cell)
         self.log_output = self.output_path + "log"
+
 
 def pad_sequences(data, max_length):
     """Ensures each input-output seqeunce pair in @data is of length
@@ -99,13 +101,22 @@ def pad_sequences(data, max_length):
 
     # Use this zero vector when padding sequences.
     zero_vector = [0] * Config.n_features
-    zero_label = 4 # corresponds to the 'O' tag
+    zero_label = 4  # corresponds to the 'O' tag
 
     for sentence, labels in data:
         ### YOUR CODE HERE (~4-6 lines)
-        pass
+        if len(sentence) < max_length:
+            mask = [True] * len(sentence) + [False] * (max_length - len(sentence))
+            sentence += [zero_vector] * (max_length - len(sentence))
+            labels += [zero_label] * (max_length - len(sentence))
+        else:
+            sentence = sentence[:max_length]
+            labels = labels[:max_length]
+            mask = [True] * max_length
+        ret.append((sentence, labels, mask))
         ### END YOUR CODE ###
     return ret
+
 
 class RNNModel(NERModel):
     """
@@ -141,6 +152,10 @@ class RNNModel(NERModel):
         (Don't change the variable names)
         """
         ### YOUR CODE HERE (~4-6 lines)
+        self.input_placeholder = tf.placeholder(tf.int32, [None, self.max_length, self.config.n_features])
+        self.labels_placeholder = tf.placeholder(tf.int32, [None, self.max_length])
+        self.mask_placeholder = tf.placeholder(tf.bool, [None, self.max_length])
+        self.dropout_placeholder = tf.placeholder(tf.float32)
         ### END YOUR CODE
 
     def create_feed_dict(self, inputs_batch, mask_batch, labels_batch=None, dropout=1):
@@ -166,6 +181,11 @@ class RNNModel(NERModel):
             feed_dict: The feed dictionary mapping from placeholders to values.
         """
         ### YOUR CODE (~6-10 lines)
+        feed_dict = {self.input_placeholder: inputs_batch,
+                     self.mask_placeholder: mask_batch,
+                     self.dropout_placeholder: dropout}
+        if labels_batch is not None:
+            feed_dict[self.labels_placeholder] = labels_batch
         ### END YOUR CODE
         return feed_dict
 
@@ -190,6 +210,9 @@ class RNNModel(NERModel):
             embeddings: tf.Tensor of shape (None, max_length, n_features*embed_size)
         """
         ### YOUR CODE HERE (~4-6 lines)
+        emb = tf.Variable(self.pretrained_embeddings)
+        emb_lookup = tf.nn.embedding_lookup(emb, self.input_placeholder)
+        embeddings = tf.reshape(emb_lookup, [-1, self.max_length, self.config.n_features * self.config.embed_size])
         ### END YOUR CODE
         return embeddings
 
@@ -236,7 +259,7 @@ class RNNModel(NERModel):
         x = self.add_embedding()
         dropout_rate = self.dropout_placeholder
 
-        preds = [] # Predicted output at each timestep should go here!
+        preds = []  # Predicted output at each timestep should go here!
 
         # Use the cell defined below. For Q2, we will just be using the
         # RNNCell you defined, but for Q3, we will run this code again
@@ -263,7 +286,9 @@ class RNNModel(NERModel):
         ### YOUR CODE HERE (~2-4 lines)
         ### END YOUR CODE
 
-        assert preds.get_shape().as_list() == [None, self.max_length, self.config.n_classes], "predictions are not of the right shape. Expected {}, got {}".format([None, self.max_length, self.config.n_classes], preds.get_shape().as_list())
+        assert preds.get_shape().as_list() == [None, self.max_length,
+                                               self.config.n_classes], "predictions are not of the right shape. Expected {}, got {}".format(
+            [None, self.max_length, self.config.n_classes], preds.get_shape().as_list())
         return preds
 
     def add_loss_op(self, preds):
@@ -309,7 +334,7 @@ class RNNModel(NERModel):
         return train_op
 
     def preprocess_sequence_data(self, examples):
-        def featurize_windows(data, start, end, window_size = 1):
+        def featurize_windows(data, start, end, window_size=1):
             """Uses the input sequences in @data to construct new windowed data points.
             """
             ret = []
@@ -333,7 +358,7 @@ class RNNModel(NERModel):
         ret = []
         for i, (sentence, labels) in enumerate(examples_raw):
             _, _, mask = examples[i]
-            labels_ = [l for l, m in zip(preds[i], mask) if m] # only select elements of mask.
+            labels_ = [l for l, m in zip(preds[i], mask) if m]  # only select elements of mask.
             assert len(labels_) == len(labels)
             ret.append([sentence, labels, labels_])
         return ret
@@ -352,7 +377,7 @@ class RNNModel(NERModel):
     def __init__(self, helper, config, pretrained_embeddings, report=None):
         super(RNNModel, self).__init__(helper, config, report)
         self.max_length = min(Config.max_length, helper.max_length)
-        Config.max_length = self.max_length # Just in case people make a mistake.
+        Config.max_length = self.max_length  # Just in case people make a mistake.
         self.pretrained_embeddings = pretrained_embeddings
 
         # Defining placeholders.
@@ -363,28 +388,37 @@ class RNNModel(NERModel):
 
         self.build()
 
+
 def test_pad_sequences():
     Config.n_features = 2
     data = [
-        ([[4,1], [6,0], [7,0]], [1, 0, 0]),
-        ([[3,0], [3,4], [4,5], [5,3], [3,4]], [0, 1, 0, 2, 3]),
-        ]
+        ([[4, 1], [6, 0], [7, 0]], [1, 0, 0]),
+        ([[3, 0], [3, 4], [4, 5], [5, 3], [3, 4]], [0, 1, 0, 2, 3]),
+    ]
     ret = [
-        ([[4,1], [6,0], [7,0], [0,0]], [1, 0, 0, 4], [True, True, True, False]),
-        ([[3,0], [3,4], [4,5], [5,3]], [0, 1, 0, 2], [True, True, True, True])
-        ]
+        ([[4, 1], [6, 0], [7, 0], [0, 0]], [1, 0, 0, 4], [True, True, True, False]),
+        ([[3, 0], [3, 4], [4, 5], [5, 3]], [0, 1, 0, 2], [True, True, True, True])
+    ]
 
     ret_ = pad_sequences(data, 4)
     assert len(ret_) == 2, "Did not process all examples: expected {} results, but got {}.".format(2, len(ret_))
     for i in range(2):
-        assert len(ret_[i]) == 3, "Did not populate return values corrected: expected {} items, but got {}.".format(3, len(ret_[i]))
+        assert len(ret_[i]) == 3, "Did not populate return values corrected: expected {} items, but got {}.".format(3,
+                                                                                                                    len(
+                                                                                                                        ret_[
+                                                                                                                            i]))
         for j in range(3):
-            assert ret_[i][j] == ret[i][j], "Expected {}, but got {} for {}-th entry of {}-th example".format(ret[i][j], ret_[i][j], j, i)
+            assert ret_[i][j] == ret[i][j], "Expected {}, but got {} for {}-th entry of {}-th example".format(ret[i][j],
+                                                                                                              ret_[i][
+                                                                                                                  j], j,
+                                                                                                              i)
+
 
 def do_test1(_):
     logger.info("Testing pad_sequences")
     test_pad_sequences()
     logger.info("Passed!")
+
 
 def do_test2(args):
     logger.info("Testing implementation of RNNModel")
@@ -394,7 +428,7 @@ def do_test2(args):
     config.embed_size = embeddings.shape[1]
 
     with tf.Graph().as_default():
-        logger.info("Building model...",)
+        logger.info("Building model...", )
         start = time.time()
         model = RNNModel(helper, config, embeddings)
         logger.info("took %.2f seconds", time.time() - start)
@@ -409,6 +443,7 @@ def do_test2(args):
     logger.info("Model did not crash!")
     logger.info("Passed!")
 
+
 def do_train(args):
     # Set up some parameters.
     config = Config(args)
@@ -422,10 +457,10 @@ def do_train(args):
     handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(message)s'))
     logging.getLogger().addHandler(handler)
 
-    report = None #Report(Config.eval_output)
+    report = None  # Report(Config.eval_output)
 
     with tf.Graph().as_default():
-        logger.info("Building model...",)
+        logger.info("Building model...", )
         start = time.time()
         model = RNNModel(helper, config, embeddings)
         logger.info("took %.2f seconds", time.time() - start)
@@ -452,6 +487,7 @@ def do_train(args):
                     for sentence, labels, predictions in output:
                         print_sentence(f, sentence, labels, predictions)
 
+
 def do_evaluate(args):
     config = Config(args)
     helper = ModelHelper.load(args.model_path)
@@ -460,7 +496,7 @@ def do_evaluate(args):
     config.embed_size = embeddings.shape[1]
 
     with tf.Graph().as_default():
-        logger.info("Building model...",)
+        logger.info("Building model...", )
         start = time.time()
         model = RNNModel(helper, config, embeddings)
 
@@ -476,6 +512,7 @@ def do_evaluate(args):
                 predictions = [LBLS[l] for l in predictions]
                 print_sentence(args.output, sentence, labels, predictions)
 
+
 def do_shell(args):
     config = Config(args)
     helper = ModelHelper.load(args.model_path)
@@ -483,7 +520,7 @@ def do_shell(args):
     config.embed_size = embeddings.shape[1]
 
     with tf.Graph().as_default():
-        logger.info("Building model...",)
+        logger.info("Building model...", )
         start = time.time()
         model = RNNModel(helper, config, embeddings)
         logger.info("took %.2f seconds", time.time() - start)
@@ -512,6 +549,7 @@ input> Germany 's representative to the European Union 's veterinary committee .
                     print("Closing session.")
                     break
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Trains and tests an NER model')
     subparsers = parser.add_subparsers()
@@ -520,34 +558,47 @@ if __name__ == "__main__":
     command_parser.set_defaults(func=do_test1)
 
     command_parser = subparsers.add_parser('test2', help='')
-    command_parser.add_argument('-dt', '--data-train', type=argparse.FileType('r'), default="data/tiny.conll", help="Training data")
-    command_parser.add_argument('-dd', '--data-dev', type=argparse.FileType('r'), default="data/tiny.conll", help="Dev data")
-    command_parser.add_argument('-v', '--vocab', type=argparse.FileType('r'), default="data/vocab.txt", help="Path to vocabulary file")
-    command_parser.add_argument('-vv', '--vectors', type=argparse.FileType('r'), default="data/wordVectors.txt", help="Path to word vectors file")
+    command_parser.add_argument('-dt', '--data-train', type=argparse.FileType('r'), default="data/tiny.conll",
+                                help="Training data")
+    command_parser.add_argument('-dd', '--data-dev', type=argparse.FileType('r'), default="data/tiny.conll",
+                                help="Dev data")
+    command_parser.add_argument('-v', '--vocab', type=argparse.FileType('r'), default="data/vocab.txt",
+                                help="Path to vocabulary file")
+    command_parser.add_argument('-vv', '--vectors', type=argparse.FileType('r'), default="data/wordVectors.txt",
+                                help="Path to word vectors file")
     command_parser.add_argument('-c', '--cell', choices=["rnn", "gru"], default="rnn", help="Type of RNN cell to use.")
     command_parser.set_defaults(func=do_test2)
 
     command_parser = subparsers.add_parser('train', help='')
-    command_parser.add_argument('-dt', '--data-train', type=argparse.FileType('r'), default="data/train.conll", help="Training data")
-    command_parser.add_argument('-dd', '--data-dev', type=argparse.FileType('r'), default="data/dev.conll", help="Dev data")
-    command_parser.add_argument('-v', '--vocab', type=argparse.FileType('r'), default="data/vocab.txt", help="Path to vocabulary file")
-    command_parser.add_argument('-vv', '--vectors', type=argparse.FileType('r'), default="data/wordVectors.txt", help="Path to word vectors file")
+    command_parser.add_argument('-dt', '--data-train', type=argparse.FileType('r'), default="data/train.conll",
+                                help="Training data")
+    command_parser.add_argument('-dd', '--data-dev', type=argparse.FileType('r'), default="data/dev.conll",
+                                help="Dev data")
+    command_parser.add_argument('-v', '--vocab', type=argparse.FileType('r'), default="data/vocab.txt",
+                                help="Path to vocabulary file")
+    command_parser.add_argument('-vv', '--vectors', type=argparse.FileType('r'), default="data/wordVectors.txt",
+                                help="Path to word vectors file")
     command_parser.add_argument('-c', '--cell', choices=["rnn", "gru"], default="rnn", help="Type of RNN cell to use.")
     command_parser.set_defaults(func=do_train)
 
     command_parser = subparsers.add_parser('evaluate', help='')
-    command_parser.add_argument('-d', '--data', type=argparse.FileType('r'), default="data/dev.conll", help="Training data")
+    command_parser.add_argument('-d', '--data', type=argparse.FileType('r'), default="data/dev.conll",
+                                help="Training data")
     command_parser.add_argument('-m', '--model-path', help="Training data")
-    command_parser.add_argument('-v', '--vocab', type=argparse.FileType('r'), default="data/vocab.txt", help="Path to vocabulary file")
-    command_parser.add_argument('-vv', '--vectors', type=argparse.FileType('r'), default="data/wordVectors.txt", help="Path to word vectors file")
+    command_parser.add_argument('-v', '--vocab', type=argparse.FileType('r'), default="data/vocab.txt",
+                                help="Path to vocabulary file")
+    command_parser.add_argument('-vv', '--vectors', type=argparse.FileType('r'), default="data/wordVectors.txt",
+                                help="Path to word vectors file")
     command_parser.add_argument('-c', '--cell', choices=["rnn", "gru"], default="rnn", help="Type of RNN cell to use.")
     command_parser.add_argument('-o', '--output', type=argparse.FileType('w'), default=sys.stdout, help="Training data")
     command_parser.set_defaults(func=do_evaluate)
 
     command_parser = subparsers.add_parser('shell', help='')
     command_parser.add_argument('-m', '--model-path', help="Training data")
-    command_parser.add_argument('-v', '--vocab', type=argparse.FileType('r'), default="data/vocab.txt", help="Path to vocabulary file")
-    command_parser.add_argument('-vv', '--vectors', type=argparse.FileType('r'), default="data/wordVectors.txt", help="Path to word vectors file")
+    command_parser.add_argument('-v', '--vocab', type=argparse.FileType('r'), default="data/vocab.txt",
+                                help="Path to vocabulary file")
+    command_parser.add_argument('-vv', '--vectors', type=argparse.FileType('r'), default="data/wordVectors.txt",
+                                help="Path to word vectors file")
     command_parser.add_argument('-c', '--cell', choices=["rnn", "gru"], default="rnn", help="Type of RNN cell to use.")
     command_parser.set_defaults(func=do_shell)
 
