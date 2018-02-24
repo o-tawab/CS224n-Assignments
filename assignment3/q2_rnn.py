@@ -105,15 +105,10 @@ def pad_sequences(data, max_length):
 
     for sentence, labels in data:
         ### YOUR CODE HERE (~4-6 lines)
-        if len(sentence) < max_length:
-            mask = [True] * len(sentence) + [False] * (max_length - len(sentence))
-            sentence += [zero_vector] * (max_length - len(sentence))
-            labels += [zero_label] * (max_length - len(sentence))
-        else:
-            sentence = sentence[:max_length]
-            labels = labels[:max_length]
-            mask = [True] * max_length
-        ret.append((sentence, labels, mask))
+        new_sent = sentence + [zero_vector] * (max_length - len(sentence))
+        new_labels = labels + [zero_label] * (max_length - len(sentence))
+        mask = [True] * len(labels) + [False] * (max_length - len(sentence))
+        ret.append((new_sent[:max_length], new_labels[:max_length], mask[:max_length]))
         ### END YOUR CODE ###
     return ret
 
@@ -274,16 +269,26 @@ class RNNModel(NERModel):
         # Define U and b2 as variables.
         # Initialize state as vector of zeros.
         ### YOUR CODE HERE (~4-6 lines)
+        U = tf.get_variable('U', [self.config.hidden_size, self.config.n_classes], \
+                            tf.float32, tf.contrib.layers.xavier_initializer())
+        b2 = tf.get_variable('b2', [self.config.n_classes], tf.float32, tf.constant_initializer(0))
+        h = tf.zeros((tf.shape(x)[0], self.config.hidden_size))
         ### END YOUR CODE
 
         with tf.variable_scope("RNN"):
             for time_step in range(self.max_length):
                 ### YOUR CODE HERE (~6-10 lines)
-                pass
+                if time_step != 0:
+                    tf.get_variable_scope().reuse_variables()
+                o_t, h = cell(x[:, time_step, :], h)
+                o_drop_t = tf.nn.dropout(o_t, dropout_rate)
+                y_t = tf.matmul(o_drop_t, U) + b2
+                preds.append(y_t)
                 ### END YOUR CODE
 
         # Make sure to reshape @preds here.
         ### YOUR CODE HERE (~2-4 lines)
+        preds = tf.stack(preds, axis=1)
         ### END YOUR CODE
 
         assert preds.get_shape().as_list() == [None, self.max_length,
@@ -307,6 +312,8 @@ class RNNModel(NERModel):
             loss: A 0-d tensor (scalar)
         """
         ### YOUR CODE HERE (~2-4 lines)
+        raw_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=preds, labels=self.labels_placeholder)
+        loss = tf.reduce_mean(tf.boolean_mask(raw_loss, self.mask_placeholder))
         ### END YOUR CODE
         return loss
 
@@ -330,6 +337,7 @@ class RNNModel(NERModel):
             train_op: The Op for training.
         """
         ### YOUR CODE HERE (~1-2 lines)
+        train_op = tf.train.AdamOptimizer(self.config.lr).minimize(loss)
         ### END YOUR CODE
         return train_op
 
