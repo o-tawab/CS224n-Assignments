@@ -23,7 +23,7 @@ class Config(object):
     hidden_size = 200
     batch_size = 1024
     n_epochs = 10
-    lr = 0.0005
+    lr = 0.001
 
 
 class ParserModel(Model):
@@ -59,7 +59,7 @@ class ParserModel(Model):
         self.dropout_placeholder = tf.placeholder(tf.float32)
         ### END YOUR CODE
 
-    def create_feed_dict(self, inputs_batch, labels_batch=None, dropout=0):
+    def create_feed_dict(self, inputs_batch, labels_batch=None, dropout=1):
         """Creates the feed_dict for the dependency parser.
 
         A feed_dict takes the form of:
@@ -110,9 +110,9 @@ class ParserModel(Model):
             embeddings: tf.Tensor of shape (None, n_features*embed_size)
         """
         ### YOUR CODE HERE
-        embedding_matrix = tf.Variable(self.pretrained_embeddings, name='embedding_matrix')
-        embeddings = tf.gather_nd(embedding_matrix, tf.reshape(self.input_placeholder, [-1, 1]))
-        embeddings = tf.reshape(embeddings, [-1, self.config.n_features * self.config.embed_size])
+        emb = tf.Variable(self.pretrained_embeddings)
+        emb_lookup = tf.nn.embedding_lookup(emb, self.input_placeholder)
+        embeddings = tf.reshape(emb_lookup, [-1, self.config.n_features*self.config.embed_size])
         ### END YOUR CODE
         return embeddings
 
@@ -147,7 +147,7 @@ class ParserModel(Model):
         b2 = tf.get_variable('b2', [self.config.n_classes])
 
         h = tf.nn.relu(tf.matmul(x, W) + b1)
-        h_drop = tf.nn.dropout(h, 1 - self.dropout_placeholder)
+        h_drop = tf.nn.dropout(h, self.dropout_placeholder)
         pred = tf.matmul(h_drop, U) + b2
         ### END YOUR CODE
         return pred

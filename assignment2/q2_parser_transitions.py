@@ -21,8 +21,8 @@ class PartialParse(object):
         self.sentence = sentence
 
         ### YOUR CODE HERE
-        self.stack = ["ROOT"]
-        self.buffer = sentence
+        self.stack = ["ROOT", sentence[0]]
+        self.buffer = sentence[1:]
         self.dependencies = []
         ### END YOUR CODE
 
