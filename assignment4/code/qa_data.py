@@ -170,10 +170,14 @@ if __name__ == '__main__':
 
     x_train_dis_path = train_path + ".ids.context"
     y_train_ids_path = train_path + ".ids.question"
+    a_train_ids_path = train_path + ".ids.answer"
     data_to_token_ids(train_path + ".context", x_train_dis_path, vocab_path)
     data_to_token_ids(train_path + ".question", y_train_ids_path, vocab_path)
+    data_to_token_ids(train_path + ".answer", a_train_ids_path, vocab_path)
 
     x_dis_path = valid_path + ".ids.context"
     y_ids_path = valid_path + ".ids.question"
     data_to_token_ids(valid_path + ".context", x_dis_path, vocab_path)
     data_to_token_ids(valid_path + ".question", y_ids_path, vocab_path)
+
+    print ('done')

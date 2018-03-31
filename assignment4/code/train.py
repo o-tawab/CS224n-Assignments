@@ -76,10 +76,31 @@ def get_normalized_train_dir(train_dir):
     return global_train_dir
 
 
-def main(_):
+def load_dataset(data_dir):
+    train_path = data_dir + '/train'
+    c_train_ids_path = train_path + ".ids.context"
+    q_train_ids_path = train_path + ".ids.question"
+    a_train_ids_path = train_path + ".ids.answer"
 
+    dataset = {}
+    dataset['c'] = []
+    with tf.gfile.GFile(c_train_ids_path, mode="rb") as f:
+        dataset['c'].append(f.readlines().split())
+
+    dataset['q'] = []
+    with tf.gfile.GFile(q_train_ids_path, mode="rb") as f:
+        dataset['q'].append(f.readlines().split())
+
+    dataset['a'] = []
+    with tf.gfile.GFile(a_train_ids_path, mode="rb") as f:
+        dataset['a'].append(f.readlines().split())
+
+    return dataset
+
+
+def main(_):
     # Do what you need to load datasets from FLAGS.data_dir
-    dataset = None
+    dataset = load_dataset(FLAGS.data_dir)
 
     embed_path = FLAGS.embed_path or pjoin("data", "squad", "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
     vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
@@ -107,6 +128,7 @@ def main(_):
         qa.train(sess, dataset, save_train_dir)
 
         qa.evaluate_answer(sess, dataset, vocab, FLAGS.evaluate, log=True)
+
 
 if __name__ == "__main__":
     tf.app.run()
