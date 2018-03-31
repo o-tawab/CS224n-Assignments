@@ -4,13 +4,18 @@ from __future__ import print_function
 
 import os
 import json
+import random
+import time
 
 import tensorflow as tf
+import numpy as np
 
 from qa_model import Encoder, QASystem, Decoder
 from os.path import join as pjoin
 
 import logging
+
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
 
@@ -76,40 +81,116 @@ def get_normalized_train_dir(train_dir):
     return global_train_dir
 
 
-def load_dataset(data_dir):
-    train_path = data_dir + '/train'
-    c_train_ids_path = train_path + ".ids.context"
-    q_train_ids_path = train_path + ".ids.question"
-    a_train_ids_path = train_path + ".ids.answer"
+def load_squad(data_path, prefix, max_vocab, max_samples=0):
+    prefix_path = pjoin(FLAGS.data_dir, prefix)
 
-    dataset = {}
-    dataset['c'] = []
-    with tf.gfile.GFile(c_train_ids_path, mode="rb") as f:
-        dataset['c'].append(f.readlines().split())
+    c_path = data_path + prefix_path + ".ids.context"
+    if not tf.gfile.Exists(c_path):
+        raise ValueError("Context file %s not found.", c_path)
 
-    dataset['q'] = []
-    with tf.gfile.GFile(q_train_ids_path, mode="rb") as f:
-        dataset['q'].append(f.readlines().split())
+    q_path = data_path + prefix_path + ".ids.question"
+    if not tf.gfile.Exists(q_path):
+        raise ValueError("Question file %s not found.", q_path)
 
-    dataset['a'] = []
-    with tf.gfile.GFile(a_train_ids_path, mode="rb") as f:
-        dataset['a'].append(f.readlines().split())
+    s_path = data_path + prefix_path + ".span"
+    if not tf.gfile.Exists(s_path):
+        raise ValueError("Span file %s not found.", s_path)
 
-    return dataset
+    tic = time.time()
+    logging.info("Loading SQUAD data from %s" % prefix_path)
+
+    c_file = open(c_path, mode="rb")
+    q_file = open(q_path, mode="rb")
+    s_file = open(s_path, mode="rb")
+
+    valid_range = range(0, max_vocab)
+
+    data = []
+
+    max_c = 0
+    max_q = 0
+
+    c_buckets = [0] * 10
+    q_buckets = [0] * 10
+
+    line = 0
+    counter = 0
+    for c, q, s in tqdm(zip(c_file, q_file, s_file)):
+        line += 1
+
+        c_ids = map(int, c.lstrip().rstrip().split(" "))
+        q_ids = map(int, q.lstrip().rstrip().split(" "))
+        span = map(int, s.lstrip().rstrip().split(" "))
+
+        if not (len(span) == 2 and span[0] <= span[1] and span[1] < len(c_ids)):
+            # print( "Invalid span at line {}. {} <= {} < {}".format(line, span[0], span[1], len(c_ids)))
+            continue
+
+        if max_vocab and not (all(id in valid_range for id in c_ids) and all(id in valid_range for id in q_ids)):
+            print("Vocab id is out of bound")
+            continue
+
+        data.append((c_ids, q_ids, [span[0], span[1]]))
+
+        c_buckets[len(c_ids) // 100] += 1
+        q_buckets[len(q_ids) // 10] += 1
+
+        max_c = max(max_c, len(c_ids))
+        max_q = max(max_q, len(q_ids))
+
+        if max_samples and len(data) >= max_samples:
+            break
+
+    samples = len(data)
+
+    assert sum(c_buckets) == samples
+    assert sum(q_buckets) == samples
+
+    data.sort(key=lambda tup: len(tup[0]) * 100 + len(tup[1]))  # Sort by context len then by question len
+
+    toc = time.time()
+    logging.info("Complete: %d samples loaded in %f secs)" % (samples, toc - tic))
+    logging.info("Question length histogram (100 in each bucket): %s" % str(c_buckets))
+    logging.info("Context length histogram (10 in each bucket): %s" % str(q_buckets))
+    logging.info("Median context length: %d" % len(data[counter // 2][0]))
+
+    return data
+
+
+def print_sample(sample, rev_vocab):
+    print("Context:")
+    print(" ".join([rev_vocab[s] for s in sample[0]]))
+    print("Question:")
+    print(" ".join([rev_vocab[s] for s in sample[1]]))
+    print("Answer:")
+    print(" ".join([rev_vocab[s] for s in sample[0][sample[2][0]:sample[2][1] + 1]]))
+
+
+def print_samples(data, n, rev_vocab):
+    all_samples = range(len(data))
+    for ix in random.sample(all_samples, n) if n > 0 else all_samples:
+        print_sample(data[ix], rev_vocab)
 
 
 def main(_):
     # Do what you need to load datasets from FLAGS.data_dir
-    dataset = load_dataset(FLAGS.data_dir)
-
     embed_path = FLAGS.embed_path or pjoin("data", "squad", "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
+    embeddingz = np.load(embed_path)
+    embeddings = embeddingz['glove']
+    embeddingz.close()
+    assert embeddings.shape[1] == FLAGS.embedding_size
+
+    vocab_len = embeddings.shape[0]
+
+    train = load_squad(FLAGS.data_dir, '/train', max_vocab=vocab_len, max_samples=0)
+    val = load_squad(FLAGS.data_dir, '/val', max_vocab=vocab_len, max_samples=0)
+
     vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
     vocab, rev_vocab = initialize_vocab(vocab_path)
 
-    encoder = Encoder(size=FLAGS.state_size, vocab_dim=FLAGS.embedding_size)
-    decoder = Decoder(output_size=FLAGS.output_size)
+    print_samples(train, 0, rev_vocab)
 
-    qa = QASystem(encoder, decoder)
+    qa = QASystem(FLAGS, embeddings)
 
     if not os.path.exists(FLAGS.log_dir):
         os.makedirs(FLAGS.log_dir)
@@ -125,9 +206,9 @@ def main(_):
         initialize_model(sess, qa, load_train_dir)
 
         save_train_dir = get_normalized_train_dir(FLAGS.train_dir)
-        qa.train(sess, dataset, save_train_dir)
+        qa.train(sess, train, save_train_dir)
 
-        qa.evaluate_answer(sess, dataset, vocab, FLAGS.evaluate, log=True)
+        qa.evaluate_answer(sess, val, vocab, FLAGS.evaluate, log=True)
 
 
 if __name__ == "__main__":

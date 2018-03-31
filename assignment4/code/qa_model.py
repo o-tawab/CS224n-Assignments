@@ -70,7 +70,7 @@ class Decoder(object):
 
 
 class QASystem(object):
-    def __init__(self, encoder, decoder, *args):
+    def __init__(self, FLAGS, pretrained_embeddings):
         """
         Initializes your System
 
