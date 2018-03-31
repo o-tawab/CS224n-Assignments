@@ -39,6 +39,7 @@ tf.app.flags.DEFINE_string("vocab_path", "data/squad/vocab.dat", "Path to vocab 
 tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embedding (default: ./data/squad/glove.trimmed.{embedding_size}.npz)")
 tf.app.flags.DEFINE_string("dev_path", "data/squad/dev-v1.1.json", "Path to the JSON dev set to evaluate against (default: ./data/squad/dev-v1.1.json)")
 
+
 def initialize_model(session, model, train_dir):
     ckpt = tf.train.get_checkpoint_state(train_dir)
     v2_path = ckpt.model_checkpoint_path + ".index" if ckpt else ""
@@ -151,7 +152,6 @@ def get_normalized_train_dir(train_dir):
 
 
 def main(_):
-
     vocab, rev_vocab = initialize_vocab(FLAGS.vocab_path)
 
     embed_path = FLAGS.embed_path or pjoin("data", "squad", "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
@@ -192,4 +192,4 @@ def main(_):
 
 
 if __name__ == "__main__":
-  tf.app.run()
+    tf.app.run()
