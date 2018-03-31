@@ -68,6 +68,7 @@ class Decoder(object):
 
         return
 
+
 class QASystem(object):
     def __init__(self, encoder, decoder, *args):
         """
@@ -80,7 +81,6 @@ class QASystem(object):
 
         # ==== set up placeholder tokens ========
 
-
         # ==== assemble pieces ====
         with tf.variable_scope("qa", initializer=tf.uniform_unit_scaling_initializer(1.0)):
             self.setup_embeddings()
@@ -90,7 +90,6 @@ class QASystem(object):
         # ==== set up training/updating procedure ====
         pass
 
-
     def setup_system(self):
         """
         After your modularized implementation of encoder and decoder
@@ -99,7 +98,6 @@ class QASystem(object):
         :return:
         """
         raise NotImplementedError("Connect all parts of your system here!")
-
 
     def setup_loss(self):
         """
@@ -192,8 +190,7 @@ class QASystem(object):
         valid_cost = 0
 
         for valid_x, valid_y in valid_dataset:
-          valid_cost = self.test(sess, valid_x, valid_y)
-
+            valid_cost = self.test(sess, valid_x, valid_y)
 
         return valid_cost
 

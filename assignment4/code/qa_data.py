@@ -24,6 +24,7 @@ PAD_ID = 0
 SOS_ID = 1
 UNK_ID = 2
 
+
 def setup_args():
     parser = argparse.ArgumentParser()
     code_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)))
