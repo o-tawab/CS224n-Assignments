@@ -26,9 +26,9 @@ def get_optimizer(opt):
 
 
 class Encoder(object):
-    def __init__(self, size, vocab_dim):
-        self.size = size
-        self.vocab_dim = vocab_dim
+    def __init__(self, FLAGS, pretrained_embeddings):
+        self.FALGS = FLAGS
+        self.pretrained_embeddings = pretrained_embeddings
 
     def encode(self, inputs, masks, encoder_state_input):
         """

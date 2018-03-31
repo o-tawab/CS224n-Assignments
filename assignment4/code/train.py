@@ -188,7 +188,7 @@ def main(_):
     vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
     vocab, rev_vocab = initialize_vocab(vocab_path)
 
-    print_samples(train, 0, rev_vocab)
+    # print_samples(train, 5, rev_vocab)
 
     qa = QASystem(FLAGS, embeddings)
 
